@@ -8,6 +8,11 @@ setup(
     author='Tomer Zait (RealGame)',
     author_email='realgam3@gmail.com',
     packages=['phantom_requests'],
+    package_data={
+        'phantom_requests': [
+            'ghostdriver/*.*'
+        ]
+    },
     install_requires=[
         'selenium >= 3.0.1',
         'requests >= 2.11.1',
