@@ -4,7 +4,7 @@ from selenium import webdriver
 from requests import Request, Response
 from selenium.webdriver.common.utils import free_port
 
-from .stractures import Proxies, Headers
+from .structures import Proxies, Headers
 
 EXECUTE_PHANTOM_JS = "executePhantomJS"
 REQUEST_PHANTOM_JS = "requestPhantomJS"
