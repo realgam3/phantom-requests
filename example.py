@@ -1,34 +1,34 @@
 import json
+from requests.auth import HTTPBasicAuth
 from requests import Session as RequestsSession
 from phantom_requests import Session as PhantomJSSession
 
 if __name__ == '__main__':
-    print 'PhantomJS:'
-    with PhantomJSSession() as session:
-        session.headers.update({'test1': 'test1', 'test2': 'test2'})
-        print 'Session Headers: %s' % json.dumps(dict(session.headers), indent=4)
+    for name, session_class in {'PhantomJS': PhantomJSSession,
+                                'Requests': RequestsSession}.items():
+        print '\n%s:' % name
+        print '________________________________________________________\n'
 
-        # Add Request Params, Request Headers.
-        res = session.get('http://httpbin.org/get', headers={'a': 'a'}, params={'test': 'test'})
-        print 'GET Result Content: %s' % res.content
-        print 'GET Request Headers: %s' % json.dumps(dict(res.request.headers), indent=4)
+        with session_class() as session:
+            session.headers.update({'Header1': 'Value1', 'Header2': 'Value2'})
+            print 'Session Headers: %s' % json.dumps(dict(session.headers), indent=4)
 
-        # Add Request Proxies.
-        res = session.post('http://httpbin.org/post', proxies={'http': '127.0.0.1:8080'}, json={'test': 'test'})
-        print 'POST Result JSON: %s' % json.dumps(res.json(), indent=4)
+            # Add Request Params, Request Headers.
+            res = session.get(
+                'http://httpbin.org/get',
+                headers={'header_name': 'header_value'},
+                params={'param_name': 'param_value'}
+            )
+            print 'GET Result Content: %s' % res.content
+            print 'GET Request Headers: %s' % json.dumps(dict(res.request.headers), indent=4)
 
-    print '________________________________________________________\n'
-
-    print 'Requests:'
-    with RequestsSession() as session:
-        session.headers.update({'test1': 'test1', 'test2': 'test2'})
-        print 'Session Headers: %s' % json.dumps(dict(session.headers), indent=4)
-
-        # Add Request Params, Request Headers.
-        res = session.get('http://httpbin.org/get', headers={'a': 'a'}, params={'test': 'test'})
-        print 'GET Result Content: %s' % res.content
-        print 'GET Request Headers: %s' % json.dumps(dict(res.request.headers), indent=4)
-
-        # Add Request Proxies.
-        res = session.post('http://httpbin.org/post', proxies={'http': '127.0.0.1:8080'}, json={'test': 'test'})
-        print 'POST Result JSON: %s' % json.dumps(res.json(), indent=4)
+            # Add Request Proxies.
+            res = session.post(
+                'http://httpbin.org/post',
+                proxies={'http': '127.0.0.1:8888'},
+                json={'json_name': 'json_value'},
+                params={'param_name': 'param_value'},
+                auth=HTTPBasicAuth('auth_user', 'auth_pass'),
+                cookies={'cookie_name': 'cookie_value'}
+            )
+            print 'POST Result JSON: %s' % json.dumps(res.json(), indent=4)

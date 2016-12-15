@@ -89,7 +89,6 @@ class Session(object):
                 verify=None,
                 cert=None,
                 json=None):
-        method_upper = method.upper()
 
         # Set Headers
         req_headers = self.headers
@@ -104,8 +103,9 @@ class Session(object):
 
         req = Request(method, url, req_headers, files, data, params, auth, cookies, hooks, json)
         prep = req.prepare()
+        req_headers.update(prep.headers)
 
-        self.driver.request(prep.url, prep.method, getattr(prep, 'data', ''))
+        self.driver.request(prep.url, prep.method, prep.body)
 
         # Prepare Response
         res = Response()
