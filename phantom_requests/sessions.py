@@ -71,7 +71,7 @@ class Session(object):
 
     @property
     def proxies(self):
-        return self._headers
+        return self._proxies
 
     @proxies.setter
     def proxies(self, *args, **kwargs):
