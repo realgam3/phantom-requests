@@ -2,9 +2,9 @@ import re
 from os import path
 from selenium import webdriver
 from requests import Request, Response
-from requests.cookies import RequestsCookieJar
 
 from . import utils
+from .cookies import PhantomJSCookieJar
 from .structures import CaseInsensitiveDict, Proxies, Headers
 
 EXECUTE_PHANTOM_JS = "executePhantomJS"
@@ -50,7 +50,7 @@ class Session(object):
         )
         self._headers = utils.default_headers(self.driver)
         self._proxies = Proxies(self.driver)
-        self._cookies = RequestsCookieJar()
+        self._cookies = PhantomJSCookieJar(self.driver)
 
     def close(self):
         return self.driver.close()
@@ -80,7 +80,9 @@ class Session(object):
     @property
     def cookies(self):
         for cookie in self.driver.get_cookies():
-            del cookie['httponly']
+            cookie['rest'] = {
+                'HttpOnly': cookie.pop('httponly', None)
+            }
             self._cookies.set(**cookie)
         return self._cookies
 

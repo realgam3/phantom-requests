@@ -32,3 +32,11 @@ if __name__ == '__main__':
                 cookies={'cookie_name': 'cookie_value'}
             )
             print 'POST Result JSON: %s' % json.dumps(res.json(), indent=4)
+
+            print "Cookies Tricks:"
+            session.get('http://httpbin.org/cookies/set?k2=v2&k1=v1', cookies={'a': 'b'})
+            print session.cookies.get_dict()
+            res = session.get('http://httpbin.org/cookies', cookies={'a': 'b'})
+            print res.request._cookies.get_dict()
+            print res.cookies.get_dict()
+            print session.cookies.get_dict()
