@@ -6,7 +6,6 @@ __license__ = 'Apache 2.0'
 __copyright__ = 'Copyright 2016 Tomer Zait'
 
 from requests import auth
-from requests import cookies
 from .sessions import session, Session
 from requests import Request, Response, PreparedRequest
 from . import utils

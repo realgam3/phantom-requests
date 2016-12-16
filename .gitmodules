@@ -1,0 +1,4 @@
+[submodule "phantom_requests/ghostdriver"]
+	path = phantom_requests/ghostdriver
+	url = https://github.com/realgam3/ghostdriver.git
+	branch = phantom-requests

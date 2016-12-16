@@ -11,7 +11,12 @@ setup(
     packages=['phantom_requests'],
     package_data={
         'phantom_requests': [
-            'ghostdriver/*.*'
+            'ghostdriver/VERSION',
+            'ghostdriver/*.*',
+            'ghostdriver/src/*.*',
+            'ghostdriver/src/request_handlers/*.*',
+            'ghostdriver/src/third_party/*.*',
+            'ghostdriver/src/third_party/webdriver-atoms/*.*',
         ]
     },
     install_requires=[

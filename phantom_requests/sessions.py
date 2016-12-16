@@ -9,7 +9,7 @@ from .structures import CaseInsensitiveDict, Proxies, Headers
 
 EXECUTE_PHANTOM_JS = "executePhantomJS"
 REQUEST_PHANTOM_JS = "requestPhantomJS"
-GHOST_DRIVER_PATH = path.abspath(path.join(path.dirname(__file__), 'ghostdriver', 'main.js'))
+GHOST_DRIVER_PATH = path.abspath(path.join(path.dirname(__file__), 'ghostdriver', 'src', 'main.js'))
 
 
 class PhantomJS(webdriver.PhantomJS):
