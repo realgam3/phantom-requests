@@ -83,6 +83,7 @@ class Session(object):
             cookie['rest'] = {
                 'HttpOnly': cookie.pop('httponly', None)
             }
+            cookie['update_driver'] = False
             self._cookies.set(**cookie)
         return self._cookies
 

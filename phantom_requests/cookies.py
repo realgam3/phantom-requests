@@ -7,8 +7,10 @@ class PhantomJSCookieJar(RequestsCookieJar):
         self.driver = driver
 
     def set(self, name, value, **kwargs):
+        update_driver = kwargs.pop('update_driver', True)
         if value is None:
-            self.driver.delete_cookie(name)
+            if update_driver:
+                self.driver.delete_cookie(name)
             remove_cookie_by_name(self, name, domain=kwargs.get('domain'), path=kwargs.get('path'))
             return
 
@@ -17,14 +19,15 @@ class PhantomJSCookieJar(RequestsCookieJar):
         else:
             c = create_cookie(name, value, **kwargs)
 
-        self.driver.add_cookie({
-            'name': c.name,
-            'value': c.name,
-            'domain': c.domain,
-            'path': c.path,
-            'secure': c.secure,
-            'expires': c.expires,
-            'httponly': getattr(c, 'HttpOnly', False)
-        })
+        if update_driver:
+            self.driver.add_cookie({
+                'name': c.name,
+                'value': c.name,
+                'domain': c.domain,
+                'path': c.path,
+                'secure': c.secure,
+                'expires': c.expires,
+                'httponly': getattr(c, 'HttpOnly', False)
+            })
         self.set_cookie(c)
         return c
