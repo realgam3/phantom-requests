@@ -67,3 +67,6 @@ class Proxies(CaseInsensitiveOnChangeDict):
                     pw=proxy.group('pw') or '',
                 )
             )
+
+        if not self:
+            self.driver.execute_phantomjs("phantom.setProxy('');")

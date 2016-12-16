@@ -2,9 +2,10 @@ import re
 from os import path
 from selenium import webdriver
 from requests import Request, Response
-from selenium.webdriver.common.utils import free_port
+from requests.cookies import RequestsCookieJar
 
-from .structures import Proxies, Headers
+from . import utils
+from .structures import CaseInsensitiveDict, Proxies, Headers
 
 EXECUTE_PHANTOM_JS = "executePhantomJS"
 REQUEST_PHANTOM_JS = "requestPhantomJS"
@@ -15,7 +16,7 @@ class PhantomJS(webdriver.PhantomJS):
     def __init__(self, executable_path="phantomjs",
                  port=0, desired_capabilities=webdriver.DesiredCapabilities.PHANTOMJS,
                  service_args=None, service_log_path=None):
-        port = port or free_port()
+        port = port or utils.free_port()
         service_args = service_args or []
         service_args.insert(0, GHOST_DRIVER_PATH)
         service_args.insert(1, '--port=%d' % port)
@@ -28,9 +29,15 @@ class PhantomJS(webdriver.PhantomJS):
         return self.execute(EXECUTE_PHANTOM_JS,
                             {'script': script, 'args': converted_args})['value']
 
-    def request(self, url, method='GET', data=None):
+    def request(self, url, method='GET', data=None, headers=None, encoding='utf8'):
+        settings = {
+            'operation': method,
+            'data': data,
+            'headers': dict(headers),
+            'encoding': encoding
+        }
         return self.execute(REQUEST_PHANTOM_JS,
-                            {'url': url, 'method': method, 'data': data})['value']
+                            {'url': url, 'settings': settings})['value']
 
 
 class Session(object):
@@ -41,13 +48,9 @@ class Session(object):
             desired_capabilities=self.desired_capabilities,
             service_log_path=path.devnull
         )
-        self._headers = Headers(self.driver, {
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Encoding": "gzip, deflate",
-            "Accept-Language": "en-US,*",
-            "User-Agent": "phantom-requests/0.0.1"
-        })
+        self._headers = utils.default_headers(self.driver)
         self._proxies = Proxies(self.driver)
+        self._cookies = RequestsCookieJar()
 
     def close(self):
         return self.driver.close()
@@ -74,6 +77,13 @@ class Session(object):
     def proxies(self, *args, **kwargs):
         self._proxies = Proxies(self.driver, *args, **kwargs)
 
+    @property
+    def cookies(self):
+        for cookie in self.driver.get_cookies():
+            del cookie['httponly']
+            self._cookies.set(**cookie)
+        return self._cookies
+
     def request(self, method, url,
                 params=None,
                 data=None,
@@ -90,22 +100,22 @@ class Session(object):
                 cert=None,
                 json=None):
 
-        # Set Headers
-        req_headers = self.headers
-        if headers:
-            req_headers = Headers(self.driver, req_headers)
-            req_headers.update(headers)
-
         # Set Proxies
         if proxies:
             req_proxies = Proxies(self.driver, self.proxies)
             req_proxies.update(proxies)
 
-        req = Request(method, url, req_headers, files, data, params, auth, cookies, hooks, json)
-        prep = req.prepare()
-        req_headers.update(prep.headers)
+        prep_headers = CaseInsensitiveDict(self.headers)
+        prep_headers.update(headers or {})
 
-        self.driver.request(prep.url, prep.method, prep.body)
+        url_parsed = utils.urlparse(url)
+        prep_cookies = self.cookies.get_dict(domain=url_parsed.netloc)
+        prep_cookies.update(cookies or {})
+
+        req = Request(method, url, prep_headers, files, data, params, auth, prep_cookies, hooks, json)
+        prep = req.prepare()
+
+        self.driver.request(prep.url, prep.method, prep.body, prep.headers)
 
         # Prepare Response
         res = Response()
@@ -119,14 +129,11 @@ class Session(object):
             self.driver.page_source,
             flags=re.DOTALL
         )
-        res._content = res_content.encode('utf-8')
-        res.encoding = 'utf-8'
+        res._content = res_content.encode('utf8')
+        res.encoding = 'utf8'
         res.request = prep
 
         # Clean
-        if headers:
-            self.headers.update()
-
         if proxies:
             self.proxies.update()
 

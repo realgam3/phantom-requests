@@ -496,11 +496,8 @@ ghostdriver.SessionReqHand = function(session) {
 
             // Load URL and wait for load to finish (or timeout)
             currWindow.execFuncAndWaitForLoad(function() {
-                if(!postObj.hasOwnProperty('method')) {
-                    currWindow.open(postObj.url.trim());
-                } else {
-                    currWindow.open(postObj.url.trim(), postObj.method.toUpperCase().trim(), postObj.data);
-                }},
+                currWindow.open(postObj.url.trim(), postObj.settings);
+                },
                 _createOnSuccessHandler(res),               //< success
                 function(errMsg) {                          //< failure/timeout
                     var errCode = errMsg === "timeout"
