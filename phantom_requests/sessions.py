@@ -2,6 +2,7 @@ import re
 from os import path
 from selenium import webdriver
 from requests import Request, Response
+from requests.exceptions import ProxyError, ConnectionError
 
 from . import utils
 from .cookies import PhantomJSCookieJar
@@ -9,6 +10,7 @@ from .structures import CaseInsensitiveDict, Proxies, Headers
 
 EXECUTE_PHANTOM_JS = "executePhantomJS"
 REQUEST_PHANTOM_JS = "requestPhantomJS"
+PAGE_PHANTOM_JS = "pagePhantomJS"
 GHOST_DRIVER_PATH = path.abspath(path.join(path.dirname(__file__), 'ghostdriver', 'src', 'main.js'))
 
 
@@ -23,6 +25,7 @@ class PhantomJS(webdriver.PhantomJS):
         super(PhantomJS, self).__init__(executable_path, port, desired_capabilities, service_args, service_log_path)
         self.command_executor._commands[EXECUTE_PHANTOM_JS] = ('POST', '/session/$sessionId/phantom/execute')
         self.command_executor._commands[REQUEST_PHANTOM_JS] = ('POST', '/session/$sessionId/phantom/request')
+        self.command_executor._commands[PAGE_PHANTOM_JS] = ('GET', '/session/$sessionId/phantom/page')
 
     def execute_phantomjs(self, script, *args):
         converted_args = list(args)
@@ -39,15 +42,20 @@ class PhantomJS(webdriver.PhantomJS):
         return self.execute(REQUEST_PHANTOM_JS,
                             {'url': url, 'settings': settings})['value']
 
+    def get_page(self):
+        return self.execute(PAGE_PHANTOM_JS)['value']
+
 
 class Session(object):
-    def __init__(self, executable_path="phantomjs"):
+    def __init__(self, executable_path="phantomjs", port=0):
         self.desired_capabilities = webdriver.DesiredCapabilities.PHANTOMJS.copy()
         self.driver = PhantomJS(
             executable_path=executable_path,
             desired_capabilities=self.desired_capabilities,
-            service_log_path=path.devnull
+            service_log_path=path.devnull,
+            port=port,
         )
+        self.auth = None
         self._headers = utils.default_headers(self.driver)
         self._proxies = Proxies(self.driver)
         self._cookies = PhantomJSCookieJar(self.driver)
@@ -115,10 +123,18 @@ class Session(object):
         prep_cookies = self.cookies.get_dict(domain=url_parsed.netloc)
         prep_cookies.update(cookies or {})
 
-        req = Request(method, url, prep_headers, files, data, params, auth, prep_cookies, hooks, json)
+        req = Request(method, url, prep_headers, files, data, params,
+                      self.auth or auth, prep_cookies, hooks, json)
         prep = req.prepare()
 
         self.driver.request(prep.url, prep.method, prep.body, prep.headers)
+        page = self.driver.get_page()
+
+        # Check For Errors
+        error = {}
+        for resource in page['resources']:
+            if resource and 'error' in resource and prep.url == resource['request']['url']:
+                error = resource['error']
 
         # Prepare Response
         res = Response()
@@ -129,7 +145,7 @@ class Session(object):
                 '</body></html>'
             ),
             r'\1',
-            self.driver.page_source,
+            page['content'],
             flags=re.DOTALL
         )
         res._content = res_content.encode('utf8')
@@ -139,6 +155,11 @@ class Session(object):
         # Clean
         if proxies:
             self.proxies.update()
+
+        if error:
+            if proxies and error['errorCode'] == 1:
+                raise ProxyError(error['errorString'])
+            raise ConnectionError(error['errorString'])
 
         return res
 
