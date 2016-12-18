@@ -23,7 +23,7 @@ if __name__ == '__main__':
             )
             print 'GET Result Content: %s' % res.content
             print 'GET Request Headers: %s' % json.dumps(dict(res.request.headers), indent=4)
-            print res.headers
+            print 'GET Response Headers: %s' % res.headers
 
             # Add Request Proxies.
             try:
