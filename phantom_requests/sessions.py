@@ -56,12 +56,14 @@ class Session(object):
             port=port,
         )
         self.auth = None
+        self.params = {}
+        self.verify = True
         self._headers = utils.default_headers(self.driver)
         self._proxies = Proxies(self.driver)
         self._cookies = PhantomJSCookieJar(self.driver)
 
     def close(self):
-        return self.driver.close()
+        self.driver.quit()
 
     def __enter__(self):
         return self
@@ -91,6 +93,7 @@ class Session(object):
             cookie['rest'] = {
                 'HttpOnly': cookie.pop('httponly', None)
             }
+            cookie['expires'] = cookie.pop('expiry', None)
             cookie['update_driver'] = False
             self._cookies.set(**cookie)
         return self._cookies
@@ -123,7 +126,10 @@ class Session(object):
         prep_cookies = self.cookies.get_dict(domain=url_parsed.netloc)
         prep_cookies.update(cookies or {})
 
-        req = Request(method, url, prep_headers, files, data, params,
+        prep_params = params or {}
+        prep_params.update(self.params)
+
+        req = Request(method, url, prep_headers, files, data, prep_params,
                       self.auth or auth, prep_cookies, hooks, json)
         prep = req.prepare()
 
@@ -131,10 +137,21 @@ class Session(object):
         page = self.driver.get_page()
 
         # Check For Errors
-        error = {}
+        prep_res = {
+            'error': None,
+            'headers': CaseInsensitiveDict(),
+            'status': None
+        }
         for resource in page['resources']:
-            if resource and 'error' in resource and prep.url == resource['request']['url']:
-                error = resource['error']
+            if not resource or 'request' not in resource or not prep.url == resource['request']['url']:
+                continue
+            if 'endReply' in resource:
+                prep_res['headers'] = CaseInsensitiveDict(
+                    {h['name']: h['value'] for h in resource['endReply']['headers']}
+                )
+                prep_res['status'] = resource['endReply']['status']
+            if 'error' in resource:
+                prep_res['error'] = resource['error']
 
         # Prepare Response
         res = Response()
@@ -148,18 +165,20 @@ class Session(object):
             page['content'],
             flags=re.DOTALL
         )
+        res.status_code = prep_res['status']
         res._content = res_content.encode('utf8')
         res.encoding = 'utf8'
+        res.headers = prep_res['headers']
         res.request = prep
 
         # Clean
         if proxies:
             self.proxies.update()
 
-        if error:
-            if proxies and error['errorCode'] == 1:
-                raise ProxyError(error['errorString'])
-            raise ConnectionError(error['errorString'])
+        if prep_res['error']:
+            if proxies and prep_res['error']['errorCode'] == 1:
+                raise ProxyError(prep_res['error']['errorString'])
+            raise ConnectionError(prep_res['error']['errorString'])
 
         return res
 

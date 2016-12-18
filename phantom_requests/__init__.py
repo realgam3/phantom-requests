@@ -5,9 +5,9 @@ __author__ = 'Tomer Zait (RealGame)'
 __license__ = 'Apache 2.0'
 __copyright__ = 'Copyright 2016 Tomer Zait'
 
+from requests import auth, exceptions, status_codes, models
 from requests.models import Request, Response, PreparedRequest
 from requests.status_codes import codes
-from requests import auth
 from requests.exceptions import (
     RequestException, Timeout, URLRequired,
     TooManyRedirects, HTTPError, ConnectionError,
