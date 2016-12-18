@@ -23,7 +23,7 @@ if __name__ == '__main__':
             )
             print 'GET Result Content: %s' % res.content
             print 'GET Request Headers: %s' % json.dumps(dict(res.request.headers), indent=4)
-            print 'GET Response Headers: %s' % res.headers
+            print 'GET Response Headers: %s' % json.dumps(dict(res.headers), indent=4)
 
             # Add Request Proxies.
             try:
@@ -41,9 +41,12 @@ if __name__ == '__main__':
                 print 'That Exception Is Fine: %s\n' % ex
 
             print "Cookies Tricks:"
-            session.get('http://httpbin.org/cookies/set?k2=v2&k1=v1', cookies={'a': 'b'})
+            res = session.get('http://httpbin.org/cookies/set?cookie_name=cookie_value')
+            # Todo: Redirect in responses like Requests
+            print res.request.headers.get('Cookie', '')
+            print res.cookies.get_dict()
             print session.cookies.get_dict()
-            res = session.get('http://httpbin.org/cookies', cookies={'a': 'b'})
-            print res.request._cookies.get_dict()
+            res = session.get('http://httpbin.org/cookies', cookies={'cookie_name_2': 'cookie_value_2'})
+            print res.request.headers['Cookie']
             print res.cookies.get_dict()
             print session.cookies.get_dict()

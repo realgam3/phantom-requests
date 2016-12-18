@@ -137,13 +137,14 @@ class Session(object):
         page = self.driver.get_page()
 
         # Check For Errors
+        current_url = self.driver.current_url
         prep_res = {
             'error': None,
             'headers': CaseInsensitiveDict(),
             'status': None
         }
         for resource in page['resources']:
-            if not resource or 'request' not in resource or not prep.url == resource['request']['url']:
+            if not resource or 'request' not in resource or not current_url == resource['request']['url']:
                 continue
             if 'endReply' in resource:
                 prep_res['headers'] = CaseInsensitiveDict(
