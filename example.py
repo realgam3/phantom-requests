@@ -40,6 +40,9 @@ if __name__ == '__main__':
                 print 'For That Test You Will Need Proxy That Listen On Port 8888:'
                 print 'That Exception Is Fine: %s\n' % ex
 
+            res = session.get('http://httpbin.org/redirect-to', params={'url': 'http://www.realgame.co.il'})
+            print 'Redirects Last URL: %s' % res.url
+
             print "Cookies Tricks:"
             res = session.get('http://httpbin.org/cookies/set?cookie_name=cookie_value')
             # Todo: Redirect in responses like Requests

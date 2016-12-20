@@ -135,24 +135,15 @@ class Session(object):
 
         self.driver.request(prep.url, prep.method, prep.body, prep.headers)
         page = self.driver.get_page()
+        page['resources'] = page['resources'][1:]
 
         # Check For Errors
-        current_url = self.driver.current_url
-        prep_res = {
-            'error': None,
-            'headers': CaseInsensitiveDict(),
-            'status': None
-        }
-        for resource in page['resources']:
-            if not resource or 'request' not in resource or not current_url == resource['request']['url']:
-                continue
-            if 'endReply' in resource:
-                prep_res['headers'] = CaseInsensitiveDict(
-                    {h['name']: h['value'] for h in resource['endReply']['headers']}
-                )
-                prep_res['status'] = resource['endReply']['status']
-            if 'error' in resource:
-                prep_res['error'] = resource['error']
+        current_page = page['resources'].pop(-1)
+
+        # Find Errors
+        error = None
+        if page['status'] == 'fail':
+            error = current_page['error']
 
         # Prepare Response
         res = Response()
@@ -166,20 +157,22 @@ class Session(object):
             page['content'],
             flags=re.DOTALL
         )
-        res.status_code = prep_res['status']
-        res._content = res_content.encode('utf8')
         res.encoding = 'utf8'
-        res.headers = prep_res['headers']
+        res.url = current_page['endReply']['url'].encode(res.encoding)
+        res.status_code = current_page['endReply']['status']
+        res._content = res_content.encode('utf8')
+        res.headers = CaseInsensitiveDict({h['name'].encode(res.encoding): h['value'].encode(res.encoding)
+                                           for h in current_page['endReply']['headers']})
         res.request = prep
 
         # Clean
         if proxies:
             self.proxies.update()
 
-        if prep_res['error']:
-            if proxies and prep_res['error']['errorCode'] == 1:
-                raise ProxyError(prep_res['error']['errorString'])
-            raise ConnectionError(prep_res['error']['errorString'])
+        if error:
+            if proxies and error['errorCode'] == 1:
+                raise ProxyError(error['errorString'])
+            raise ConnectionError(error['errorString'])
 
         return res
 
