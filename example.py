@@ -5,9 +5,13 @@ from requests.exceptions import ProxyError
 from requests import Session as RequestsSession
 from phantom_requests import Session as PhantomJSSession
 
+CLASSES = {
+    'PhantomJS': functools.partial(PhantomJSSession, port=8910),
+    'Requests': RequestsSession
+}
+
 if __name__ == '__main__':
-    for name, session_class in {'PhantomJS': functools.partial(PhantomJSSession, port=8910),
-                                'Requests': RequestsSession}.items():
+    for name, session_class in CLASSES.items():
         print '\n%s:' % name
         print '________________________________________________________\n'
 
@@ -40,12 +44,15 @@ if __name__ == '__main__':
                 print 'For That Test You Will Need Proxy That Listen On Port 8888:'
                 print 'That Exception Is Fine: %s\n' % ex
 
+            print 'History Tricks:'
             res = session.get('http://httpbin.org/redirect-to', params={'url': 'http://www.realgame.co.il'})
-            print 'Redirects Last URL: %s' % res.url
+            print res.url
+            print res.history[1].url
+            print res.history[0].url
 
             print "Cookies Tricks:"
-            res = session.get('http://httpbin.org/cookies/set?cookie_name=cookie_value')
-            # Todo: Redirect in responses like Requests
+            res = session.get('http://httpbin.org/cookies/set?cookie_name=cookie_value', cookies={'test': 'test'})
+            print res.json()
             print res.request.headers.get('Cookie', '')
             print res.cookies.get_dict()
             print session.cookies.get_dict()

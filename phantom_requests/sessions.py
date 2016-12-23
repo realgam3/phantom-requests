@@ -1,11 +1,12 @@
 import re
 from os import path
 from selenium import webdriver
-from requests import Request, Response
+from http.cookies import SimpleCookie
+from requests import Request, Response, PreparedRequest
 from requests.exceptions import ProxyError, ConnectionError
 
 from . import utils
-from .cookies import PhantomJSCookieJar
+from .cookies import PhantomJSCookieJar, RequestsCookieJar
 from .structures import CaseInsensitiveDict, Proxies, Headers
 
 EXECUTE_PHANTOM_JS = "executePhantomJS"
@@ -98,6 +99,76 @@ class Session(object):
             self._cookies.set(**cookie)
         return self._cookies
 
+    @staticmethod
+    def _extract_response(page, encoding='utf8'):
+        history = []
+        set_cookies = []
+        res = None
+        for i, url in enumerate(page['history']):
+            resource = page['resources'].pop(0)
+            while resource['request']['url'] != url:
+                resource = page['resources'].pop(0)
+
+            if resource['error']:
+                return resource['error'], None
+
+            request = resource['request']
+            req = PreparedRequest()
+            req.method = request['method'].encode(encoding)
+            req.url = request['url'].encode(encoding)
+
+            # Set Request Headers
+            req.headers = CaseInsensitiveDict()
+            for header in request['headers']:
+                req.headers[header['name'].encode(encoding)] = header['value'].encode(encoding)
+
+            # Set Request Cookies
+            req._cookies = RequestsCookieJar()
+            if set_cookies:
+                if 'Cookie' not in req.headers:
+                    req.headers['Cookie'] = ""
+                else:
+                    set_cookies.insert(0, '')
+                req.headers['Cookie'] += "; ".join(set_cookies)
+
+            if 'Cookie' in req.headers:
+                cookies = SimpleCookie()
+                cookies.load(req.headers['Cookie'])
+                for key, cookie in cookies.items():
+                    req._cookies.set(key, cookie.value)
+
+            req.body = request.get('postData', None)
+            if req.body:
+                req.body = req.body.encode(encoding)
+
+            response = resource['endReply'] or resource['startReply']
+            res = Response()
+            res.encoding = encoding
+            res.url = response['url'].encode(encoding)
+            res.status_code = response['status']
+            for header in response['headers']:
+                res.headers[header['name'].encode(encoding)] = header['value'].encode(encoding)
+                if header['name'] == 'Set-Cookie':
+                    set_cookies.append(res.headers[header['name']].rsplit(';', 1)[0])
+
+            res.history = list(history)
+            res.request = req
+
+            history.append(res)
+
+        res._content = re.sub(
+            (
+                '<html><head></head><body>'
+                '<pre style="word-wrap: break-word; white-space: pre-wrap;">(.*?)</pre>'
+                '</body></html>'
+            ),
+            r'\1',
+            page['content'],
+            flags=re.DOTALL
+        ).encode(encoding)
+
+        return None, res
+
     def request(self, method, url,
                 params=None,
                 data=None,
@@ -134,36 +205,7 @@ class Session(object):
         prep = req.prepare()
 
         self.driver.request(prep.url, prep.method, prep.body, prep.headers)
-        page = self.driver.get_page()
-        page['resources'] = page['resources'][1:]
-
-        # Check For Errors
-        current_page = page['resources'].pop(-1)
-
-        # Find Errors
-        error = None
-        if page['status'] == 'fail':
-            error = current_page['error']
-
-        # Prepare Response
-        res = Response()
-        res_content = re.sub(
-            (
-                '<html><head></head><body>'
-                '<pre style="word-wrap: break-word; white-space: pre-wrap;">(.*?)</pre>'
-                '</body></html>'
-            ),
-            r'\1',
-            page['content'],
-            flags=re.DOTALL
-        )
-        res.encoding = 'utf8'
-        res.url = current_page['endReply']['url'].encode(res.encoding)
-        res.status_code = current_page['endReply']['status']
-        res._content = res_content.encode('utf8')
-        res.headers = CaseInsensitiveDict({h['name'].encode(res.encoding): h['value'].encode(res.encoding)
-                                           for h in current_page['endReply']['headers']})
-        res.request = prep
+        error, res = self._extract_response(self.driver.get_page())
 
         # Clean
         if proxies:
