@@ -1,13 +1,20 @@
+# -*- coding: utf-8 -*-
+
 import re
 from os import path
 from selenium import webdriver
-from http.cookies import SimpleCookie
 from requests import Request, Response, PreparedRequest
 from requests.exceptions import ProxyError, ConnectionError
 
 from . import utils
 from .cookies import PhantomJSCookieJar, RequestsCookieJar
 from .structures import CaseInsensitiveDict, Proxies, Headers
+
+try:
+    from Cookie import SimpleCookie
+except ImportError:
+    # Python3
+    from http.cookies import SimpleCookie
 
 EXECUTE_PHANTOM_JS = "executePhantomJS"
 REQUEST_PHANTOM_JS = "requestPhantomJS"
