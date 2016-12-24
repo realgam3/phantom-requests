@@ -2,6 +2,7 @@
 
 import re
 from os import path
+from json import dumps
 from selenium import webdriver
 from requests import Request, Response, PreparedRequest
 from requests.exceptions import ProxyError, ConnectionError
@@ -193,16 +194,23 @@ class Session(object):
                 json=None):
 
         # Set Proxies
-        if proxies:
+        if proxies is not None:
             req_proxies = Proxies(self.driver, self.proxies)
             req_proxies.update(proxies)
 
         prep_headers = CaseInsensitiveDict(self.headers)
         prep_headers.update(headers or {})
 
+        cookies_to_restore = []
         url_parsed = utils.urlparse(url)
         prep_cookies = self.cookies.get_dict(domain=url_parsed.netloc)
         prep_cookies.update(cookies or {})
+        if cookies is not None:
+            for name, value in cookies.items():
+                cookies_to_restore.append(self.driver.get_cookie(name))
+                self.driver.execute_phantomjs("this.addCookie({})".format(dumps(
+                    {'name': name, 'value': value, 'domain': url_parsed.netloc}
+                )))
 
         prep_params = params or {}
         prep_params.update(self.params)
@@ -215,8 +223,16 @@ class Session(object):
         error, res = self._extract_response(self.driver.get_page())
 
         # Clean
-        if proxies:
+        if proxies is not None:
             self.proxies.update()
+
+        if cookies is not None:
+            for name, _ in cookies.items():
+                self.driver.delete_cookie(name)
+            for cookie in cookies_to_restore:
+                if not cookie:
+                    continue
+                self.driver.execute_phantomjs("this.addCookie({})".format(dumps(cookie)))
 
         if error:
             if proxies and error['errorCode'] == 1:
