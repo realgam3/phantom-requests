@@ -206,9 +206,14 @@ class Session(object):
         prep_cookies = self.cookies.get_dict(domain=url_parsed.netloc)
         prep_cookies.update(cookies or {})
         if cookies is not None:
+            # Work Around To Set Cookies From Other Domain
+            current_url_parsed = utils.urlparse(self.driver.current_url)
+            if not current_url_parsed.netloc.endswith(url_parsed.netloc):
+                self.driver.get('about:blank')
+
             for name, value in cookies.items():
                 cookies_to_restore.append(self.driver.get_cookie(name))
-                self.driver.execute_phantomjs("this.addCookie({})".format(dumps(
+                self.driver.execute_phantomjs("this.addCookie({});".format(dumps(
                     {'name': name, 'value': value, 'domain': url_parsed.netloc}
                 )))
 
