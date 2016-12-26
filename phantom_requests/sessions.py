@@ -112,70 +112,74 @@ class Session(object):
         history = []
         set_cookies = []
         res = None
-        for i, url in enumerate(page['history']):
-            resource = page['resources'].pop(0)
-            while resource['request']['url'] != url:
+        try:
+            for i, url in enumerate(page['history']):
                 resource = page['resources'].pop(0)
+                while resource['request']['url'] != url:
+                    resource = page['resources'].pop(0)
 
-            if resource['error']:
-                return resource['error'], None
+                if resource['error']:
+                    return resource['error'], None
 
-            request = resource['request']
-            req = PreparedRequest()
-            req.method = request['method'].encode(encoding)
-            req.url = request['url'].encode(encoding)
+                request = resource['request']
+                req = PreparedRequest()
+                req.method = request['method'].encode(encoding)
+                req.url = request['url'].encode(encoding)
 
-            # Set Request Headers
-            req.headers = CaseInsensitiveDict()
-            for header in request['headers']:
-                req.headers[header['name'].encode(encoding)] = header['value'].encode(encoding)
+                # Set Request Headers
+                req.headers = CaseInsensitiveDict()
+                for header in request['headers']:
+                    req.headers[header['name'].encode(encoding)] = header['value'].encode(encoding)
 
-            # Set Request Cookies
-            req._cookies = RequestsCookieJar()
-            if set_cookies:
-                if 'Cookie' not in req.headers:
-                    req.headers['Cookie'] = ""
-                else:
-                    set_cookies.insert(0, '')
-                req.headers['Cookie'] += "; ".join(set_cookies)
+                # Set Request Cookies
+                req._cookies = RequestsCookieJar()
+                if set_cookies:
+                    if 'Cookie' not in req.headers:
+                        req.headers['Cookie'] = ""
+                    else:
+                        set_cookies.insert(0, '')
+                    req.headers['Cookie'] += "; ".join(set_cookies)
 
-            if 'Cookie' in req.headers:
-                cookies = SimpleCookie()
-                cookies.load(req.headers['Cookie'])
-                for key, cookie in cookies.items():
-                    req._cookies.set(key, cookie.value)
+                if 'Cookie' in req.headers:
+                    cookies = SimpleCookie()
+                    cookies.load(req.headers['Cookie'])
+                    for key, cookie in cookies.items():
+                        req._cookies.set(key, cookie.value)
 
-            req.body = request.get('postData', None)
-            if req.body:
-                req.body = req.body.encode(encoding)
+                req.body = request.get('postData', None)
+                if req.body:
+                    req.body = req.body.encode(encoding)
 
-            response = resource['endReply'] or resource['startReply']
-            res = Response()
-            res.encoding = encoding
-            res.url = response['url'].encode(encoding)
-            res.status_code = response['status']
-            for header in response['headers']:
-                res.headers[header['name'].encode(encoding)] = header['value'].encode(encoding)
-                if header['name'] == 'Set-Cookie':
-                    set_cookies.append(res.headers[header['name']].rsplit(';', 1)[0])
+                response = resource['endReply'] or resource['startReply']
+                res = Response()
+                res.encoding = encoding
+                res.url = response['url'].encode(encoding)
+                res.status_code = response['status']
+                for header in response['headers']:
+                    res.headers[header['name'].encode(encoding)] = header['value'].encode(encoding)
+                    if header['name'] == 'Set-Cookie':
+                        set_cookies.append(res.headers[header['name']].rsplit(';', 1)[0])
 
-            res.history = list(history)
-            res.request = req
+                res.history = list(history)
+                res.request = req
 
-            history.append(res)
+                history.append(res)
 
-        res._content = re.sub(
-            (
-                '<html><head></head><body>'
-                '<pre style="word-wrap: break-word; white-space: pre-wrap;">(.*?)</pre>'
-                '</body></html>'
-            ),
-            r'\1',
-            page['content'],
-            flags=re.DOTALL
-        ).encode(encoding)
+            res._content = re.sub(
+                (
+                    '<html><head></head><body>'
+                    '<pre style="word-wrap: break-word; white-space: pre-wrap;">(.*?)</pre>'
+                    '</body></html>'
+                ),
+                r'\1',
+                page['content'],
+                flags=re.DOTALL
+            ).encode(encoding)
 
-        return None, res
+            return None, res
+        except IndexError:
+            return {'errorCode': -1,
+                    'errorString': 'An existing connection was forcibly closed by the remote host'}, None
 
     def request(self, method, url,
                 params=None,
